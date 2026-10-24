@@ -863,6 +863,8 @@ def _check_ws_origin(request: web.Request) -> None:
     We allow only the dashboard's own origins and reject everything else,
     including missing Origin (non-browser clients are not expected).
     """
+    if request.get("user") == "local-owner":
+        return
     if not check_origin(request, require=True):
         raise web.HTTPForbidden(text="WebSocket origin not allowed")
 

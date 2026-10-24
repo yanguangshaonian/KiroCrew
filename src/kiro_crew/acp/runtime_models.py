@@ -16,70 +16,9 @@ from typing import Sequence
 
 from kiro_crew import model_registry
 from kiro_crew.agent_sdk.backends import ACP_BACKENDS_MODEL_EFFORT_PAIR_IDS
+from kiro_crew.model_catalog import advertised_model_ids, model_is_unusable
 
 DEFAULT_MODEL = "auto"
-
-
-def advertised_model_ids(entries: object) -> list[str]:
-    """Model ids out of an ``availableModels``-shaped list, defensively.
-
-    The advertised list is remote input reshaped by several backends, so this
-    tolerates anything that is not a list of ``{"modelId": ...}`` dicts and
-    returns what it can. Shared by the three call sites that pre-flight a model
-    so none of them re-derives the shape — and so a surprising payload degrades
-    to "entitlement unknown" (empty list -> :func:`model_is_unusable` allows the
-    send) instead of raising inside session startup.
-    """
-    if not isinstance(entries, (list, tuple)):
-        return []
-    ids: list[str] = []
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        model_id = entry.get("modelId") or entry.get("value") or ""
-        if isinstance(model_id, str) and model_id.strip():
-            ids.append(model_id)
-    return ids
-
-
-def model_is_unusable(model_id: str, advertised: Sequence[str] | None) -> bool:
-    """True when *advertised* is known and excludes *model_id*.
-
-    The counterpart to :func:`_model_is_unentitled`, moved BEFORE the wire: that
-    one explains a rejection after the fact, this one declines to send a model
-    the backend already told us the account cannot run. Deliberately ONE shared
-    predicate rather than a copy per call site — the same reason that keeps the
-    formatter and the retry classifier share a discriminator: two spellings of
-    "can this account use it" would eventually disagree.
-
-    Returns False — allow the send — whenever entitlement is unknowable: an
-    empty/None advertised set (no session yet, or a backend that omits
-    ``models``) must not be read as "nothing is allowed", which would withhold
-    every model on a backend that simply does not advertise.
-
-    Only meaningful where the advertised ids share a namespace with *model_id*,
-    and callers gate on that. kiro-cli's advertised ids are exactly the ids
-    ``session/set_model`` accepts, so an id absent from the list is genuinely
-    unusable. The claude backend advertises BARE ids (``claude-opus-4-8[1m]``)
-    while the configured model is the prefixed provider id
-    (``global.anthropic.claude-opus-4-8[1m]``), so comparing those two
-    namespaces would call every legitimate model unusable; that backend
-    announces its own substitutions through the ``session/new`` advisory
-    instead (see ``_new_session_following_substitution``).
-
-    A pin carrying a stale ``<namespace>::<bare-id>`` qualifier (stored when a
-    catalog advertised the qualified spelling, judged against one advertising
-    the bare id) is the one comparable mismatch, and it is deliberately NOT
-    folded here: this predicate's permissive answer feeds the wire sites, and
-    a still-qualified id on the wire is a spelling the backend never
-    advertised. :func:`resolve_pin_spelling` is the shared fold for that case —
-    it answers with the advertised spelling, so a caller can compare AND send
-    one consistent id.
-    """
-    if not advertised:
-        return False
-    wanted = model_id.strip().lower()
-    return wanted not in {m.strip().lower() for m in advertised if m and m.strip()}
 
 
 def resolve_pin_spelling(model_id: str, advertised: Sequence[str] | None) -> str:

@@ -109,6 +109,8 @@ def _register_config_watch(
         task.add_done_callback(state._background_tasks.discard)
 
     async def _apply_background_model(change: ConfigChange) -> None:
+        if change.new.agent.provider == "direct":
+            return
         # The background role model is baked into the lite / heartbeat kiro specs
         # at agent-build time, so a change must rewrite them to take effect. The
         # subagent role is read live at spawn and needs no rebuild.
@@ -125,6 +127,10 @@ def _register_config_watch(
     default_model_failure_notified = False
 
     async def _apply_default_model(change: ConfigChange) -> None:
+        if change.new.agent.provider == "direct":
+            if change.touched("agent.model"):
+                state.push_refresh("agents")
+            return
         # The default (chat) model is baked into the main ``kirocrew`` spec at
         # agent-build time via ``_refresh_dynamic_fields`` (which reads
         # config.json ``agent.model``). A dashboard/CLI change to that key only

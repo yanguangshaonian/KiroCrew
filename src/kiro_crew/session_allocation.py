@@ -777,6 +777,11 @@ class SessionAllocationService:
         through ACP's string-only session request. In that case the facade's
         normal dedicated-provider path binds a runtime at the requested cwd.
         """
+        if self._owner._cfg.agent.provider == "direct":
+            return await self._owner.get_or_create(
+                session_key, agent=agent, approval_policy=approval_policy,
+                cwd=cwd, start_priority=start_priority,
+            )
         # Circular import: runtime imports the session provider path indirectly.
         from kiro_crew.acp.runtime import AcpWorkspaceBindingError
 

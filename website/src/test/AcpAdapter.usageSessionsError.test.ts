@@ -15,7 +15,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import { api } from '../api/client'
-import { AcpAdapter } from '../providers/adapters/acp'
+import { DirectAdapter } from '../providers/adapters/direct'
 
 const kiroUsage = api.kiroUsage as unknown as ReturnType<typeof vi.fn>
 
@@ -71,12 +71,12 @@ function healthySessionsPayload() {
   return p
 }
 
-describe('AcpAdapter.fetchUsage — an unreadable sessions directory', () => {
+describe('DirectAdapter.fetchUsage — an unreadable sessions directory', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('rejects with the message the server sent', async () => {
     kiroUsage.mockResolvedValue(unreadableSessionsPayload())
-    await expect(new AcpAdapter().fetchUsage()).rejects.toThrow(
+    await expect(new DirectAdapter().fetchUsage()).rejects.toThrow(
       'cannot read sessions directory',
     )
   })
@@ -88,7 +88,7 @@ describe('AcpAdapter.fetchUsage — an unreadable sessions directory', () => {
     // message is what the Usage tab prints, so equality is the property that
     // matters, not merely that something was thrown.
     kiroUsage.mockResolvedValue(unreadableSessionsPayload())
-    const err = await new AcpAdapter().fetchUsage().then(
+    const err = await new DirectAdapter().fetchUsage().then(
       () => null,
       (e: unknown) => e,
     )
@@ -103,7 +103,7 @@ describe('AcpAdapter.fetchUsage — an unreadable sessions directory', () => {
     // what produced "Cannot read properties of undefined (reading 'sessions')"
     // in the Usage tab, in place of the message the server had already written.
     kiroUsage.mockResolvedValue(errorOnlySessionsPayload())
-    const err = await new AcpAdapter().fetchUsage().then(
+    const err = await new DirectAdapter().fetchUsage().then(
       () => null,
       (e: unknown) => e,
     )
@@ -115,7 +115,7 @@ describe('AcpAdapter.fetchUsage — an unreadable sessions directory', () => {
     // Guard the guard: a method that rejected unconditionally would pass both
     // assertions above.
     kiroUsage.mockResolvedValue(healthySessionsPayload())
-    const usage = await new AcpAdapter().fetchUsage()
+    const usage = await new DirectAdapter().fetchUsage()
     expect(usage.sessions.today).toEqual({ sessions: 3, messages: 9, toolCalls: 4 })
     expect(usage.billing?.plan).toBe('Pro')
     expect(usage.refreshing).toBe(false)
@@ -123,7 +123,7 @@ describe('AcpAdapter.fetchUsage — an unreadable sessions directory', () => {
 
   it('preserves a background session-refresh marker while billing is usable', async () => {
     kiroUsage.mockResolvedValue({ ...healthySessionsPayload(), refreshing: true })
-    const usage = await new AcpAdapter().fetchUsage()
+    const usage = await new DirectAdapter().fetchUsage()
     expect(usage.refreshing).toBe(true)
     expect(usage.billing?.plan).toBe('Pro')
   })
@@ -137,7 +137,7 @@ describe('AcpAdapter.fetchUsage — an unreadable sessions directory', () => {
 // (reading 'total_sessions')" -- the engine's English, in every locale, which
 // the en-XA pseudolocale sweep counts as a latin leak as soon as the gate waits
 // for the surface to settle before scanning it (#9709).
-describe('AcpAdapter.fetchUsage — a payload with no sessions half', () => {
+describe('DirectAdapter.fetchUsage — a payload with no sessions half', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it.each([
@@ -146,7 +146,7 @@ describe('AcpAdapter.fetchUsage — a payload with no sessions half', () => {
     ['a sessions half that is an array', { username: 'someone', billing: {}, sessions: [] }],
   ])('rejects with the catalog message for %s, not a TypeError', async (_label, payload) => {
     kiroUsage.mockResolvedValue(payload)
-    const err = await new AcpAdapter().fetchUsage().then(
+    const err = await new DirectAdapter().fetchUsage().then(
       () => null,
       (e: unknown) => e,
     )

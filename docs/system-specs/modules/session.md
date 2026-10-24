@@ -1,5 +1,18 @@
 # Session Manager Module
 
+## 本地分叉会话
+
+默认会话使用 `DirectProvider`, 后台任务使用现有 provider-backed 分支;
+任务步骤通过会话工厂创建独立内置 provider. direct 会话以 `direct` 标签持久化,
+`SessionMap` 检查数据目录 `direct_sessions/<sid>.json` 判断可恢复性.
+会话可切换模型、取消执行并通过模型摘要压缩历史. 模型 token 用量按一轮内的
+全部请求累计, 通过原有 `TurnUsage` 接口交给用量存储.
+
+关停时持久化 direct 会话 SID 与工作目录, 跳过隐私、无状态及未完成回放的
+会话. SessionManager 重新创建后以 `direct` 标签解析历史文件.
+任务步骤直接通过会话工厂分配, 不创建 ACP 共享运行时. 后台 prompt 的超时
+覆盖会话锁等待和执行, 未传入时默认总预算为 1800 秒.
+
 ## Overview
 
 Maps thread keys to LLMProvider instances (`session.py`). Each thread gets

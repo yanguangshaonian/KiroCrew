@@ -62,7 +62,7 @@ def _configured_bg_backend(self: SessionManager) -> str:
 
 def _bg_backend_supports_runtime(self: SessionManager) -> bool:
     """Return whether the configured backend supports a shared runtime."""
-    return self._background_runtime._bg_backend_supports_runtime()
+    return False
 
 
 async def _reap_drained_bg_runtimes_locked(self: SessionManager) -> None:

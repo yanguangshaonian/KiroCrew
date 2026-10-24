@@ -276,6 +276,8 @@ async def api_spawn(request: web.Request) -> web.Response:
     # Security: this endpoint requires X-Internal-Secret (internal_paths
     # in server.py), so only local MCP server processes can call it.
     approval_mode = body.get("approval_mode", "")
+    if request.get("user") == "local-owner" and not approval_mode:
+        approval_mode = "auto"
     if approval_mode not in ("", "auto"):
         return web.json_response({"error": "approval_mode must be '' or 'auto'"}, status=400)
     silent = body.get("silent", False)

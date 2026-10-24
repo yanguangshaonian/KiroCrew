@@ -94,7 +94,9 @@ from typing import Any, Dict, List
 
 from aiohttp import web
 
-from kiro_crew.dashboard.handlers.kiro_prerequisite import _is_dashboard_owner
+from kiro_crew.dashboard.handlers.source_providers import (
+    is_owner_dashboard_request as _is_dashboard_owner,
+)
 from kiro_crew.sel import sel
 
 logger = logging.getLogger(__name__)

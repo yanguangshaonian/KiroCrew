@@ -26,7 +26,7 @@ import time
 from typing import Any, Awaitable, Callable
 
 from kiro_crew import name_grant, session_directive
-from kiro_crew.acp.types import (
+from kiro_crew.runtime_types import (
     EVENT_COMPACTION_STATUS,
     EVENT_COMPLETE,
     EVENT_PERMISSION_REQUEST,

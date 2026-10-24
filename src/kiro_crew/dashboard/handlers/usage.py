@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import web
 
 from kiro_crew import _facade_mirror
-from kiro_crew.acp.types import TurnUsage
+from kiro_crew.turn_usage import TurnUsage
 from kiro_crew.dashboard.handlers.usage_sessions import _CACHE_TTL, _usage_sessions_snapshot
 from kiro_crew.dashboard.handlers.usage_store import (  # noqa: F401 - usage_series reads these per row
     _coerce_int,

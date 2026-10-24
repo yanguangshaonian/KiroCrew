@@ -73,23 +73,6 @@ def register(app: web.Application) -> None:
     app.router.add_get("/api/ready", handlers.api_ready)
     app.router.add_get("/api/theme/boot", handlers.api_theme_boot)
     app.router.add_get("/api/admin/compliance/yolo-status", handlers.api_compliance_yolo_status)
-    app.router.add_get(
-        "/api/kiro-prerequisite",
-        handlers.api_kiro_prerequisite_status,
-    )
-    # POST, not a flag on the status GET: csrf_middleware skips check_origin for
-    # safe methods and sel_audit_middleware logs only mutating ones, so a spec
-    # rewrite reached from the GET would be cross-site triggerable and unaudited.
-    app.router.add_post(
-        "/api/kiro-prerequisite/repair-specs",
-        handlers.api_kiro_prerequisite_repair_specs,
-    )
-    # POST for the same reason as repair-specs above: it spawns `kiro-cli update`
-    # on the host, so it must be origin-checked and audited.
-    app.router.add_post(
-        "/api/kiro-prerequisite/update-cli",
-        handlers.api_kiro_prerequisite_update_cli,
-    )
 
     # KAS-mode interactive login (no kiro-cli): status is a read; the device-code
     # begin/poll/logout mutations are POSTs so they stay origin-checked and audited.

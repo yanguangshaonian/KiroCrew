@@ -982,6 +982,13 @@ class TestVerdictFactoryParity:
 
         role_models = {"subagent": role_pin} if role_pin else {}
         with _hermetic_cfg(role_models=role_models, agent_pins=pins) as cfg:
+            cfg.agent.direct_model = {
+                "model": "direct-default",
+                "models": [
+                    {"id": name, "reasoning_effort": ["high"] if "sonnet" in name else []}
+                    for name in ("direct-default", "sonnet-test-model", "deepseek-3.2")
+                ],
+            }
             # The spawn caller side, exactly as ``_run_inner``/``get_or_create``
             # drive it: an explicit model (or the role pin) is passed verbatim
             # as the session model kwarg; with neither, ``get_or_create``
@@ -989,20 +996,13 @@ class TestVerdictFactoryParity:
             # ``None``) to the factory as ``model_override``.
             eff_model = model or _subagent_default_model()
             override = eff_model or _session_model(cfg, agent or None)
-            with patch("kiro_crew.providers.acp.AcpProvider") as provider_cls:
-                factory = cfg.create_provider_factory()
-                factory(
-                    "parity-key",
-                    agent=agent or None,
-                    model_override=override,
-                    cwd=str(tmp_path),
-                    reasoning_effort_override="high",
-                )
-            kwargs = provider_cls.call_args.kwargs
-            gate_model = kwargs["model"] or ""
-            gate_applies = bool(kwargs["effort_per_model"])
-            # Carried unkeyed for the provider to bind to the served model.
-            gate_carries = bool(kwargs["unbound_effort"])
+            provider = cfg.create_provider_factory()(
+                "parity-key", agent=agent or None, model_override=override,
+                cwd=str(tmp_path), reasoning_effort_override="high",
+            )
+            gate_model = provider.model
+            gate_applies = provider._effort == "high"
+            gate_carries = False
 
             resolved = _spawn_effective_model(model, agent)
             drop = effort_drop_reason(model, "high", agent)
@@ -1071,20 +1071,17 @@ class TestUnpinnedSpawnVerdictMatchesTheProvider:
         from kiro_crew.subagent import effort_pending_note
 
         with _hermetic_cfg(backend=backend) as cfg:
-            with patch("kiro_crew.providers.acp.AcpProvider") as provider_cls:
-                cfg.create_provider_factory()(
-                    "parity-key",
-                    agent=None,
-                    model_override=None,
-                    cwd=str(tmp_path),
-                    reasoning_effort_override="high",
-                )
+            cfg.agent.direct_model = {
+                "model": "custom-default", "models": [{"id": "custom-default", "reasoning_effort": ["high"]}],
+            }
+            provider = cfg.create_provider_factory()(
+                "parity-key", agent=None, model_override=None,
+                cwd=str(tmp_path), reasoning_effort_override="high",
+            )
             pending = effort_pending_note("", "high", "")
-        kwargs = provider_cls.call_args.kwargs
-        assert kwargs["acp_backend"] == backend
-        assert kwargs["effort_per_model"] == {}
-        assert kwargs["unbound_effort"] == "high"
-        assert pending.startswith("no model is pinned")
+        assert provider.model == "custom-default"
+        assert provider._effort == "high"
+        assert pending == ""
 
     @pytest.mark.asyncio
     async def test_kiro_receipt_agrees_with_a_kiro_session_serving_a_concrete_model(self):
@@ -1509,6 +1506,14 @@ class TestAllocatedEffortReceipt:
         def configure():
             cfg = KiroCrewConfig.load()
             cfg.agent.model = global_model
+            cfg.agent.direct_model = {
+                "model": global_model,
+                "models": [
+                    {"id": name, "reasoning_effort": ["high"] if "sonnet" in name else []}
+                    for name in {global_model, member_model, explicit_model, role_model, template_model}
+                    if name
+                ],
+            }
             cfg.agent.role_models = {"subagent": role_model} if role_model else {}
             cfg.agents["worker"] = KiroCrewAgentConfig(
                 kiro_agent="member-parent", model=member_model
@@ -1646,20 +1651,16 @@ class TestAllocatedEffortReceipt:
 
                 def factory_gate():
                     cfg = KiroCrewConfig.load()
-                    # Feed captured allocation inputs through the real factory;
-                    # only construction of the external provider is intercepted.
-                    with patch("kiro_crew.providers.acp.AcpProvider") as constructor:
-                        cfg.create_provider_factory()(key, **actual_inputs[key])
-                        return constructor.call_args.kwargs
+                    return cfg.create_provider_factory()(key, **actual_inputs[key])
 
                 gate = await asyncio.to_thread(factory_gate)
                 assert prepare.call_count == (2 if selection != "explicit" else 1)
-                assert gate["model"] == expected_model
-                applies = bool(gate["effort_per_model"])
+                assert gate.model == expected_model
+                applies = bool(gate._effort)
                 assert bool(receipt.get("effort_applied")) == applies, (receipt, gate)
                 assert bool(receipt.get("effort_dropped")) != applies, (receipt, gate)
                 if applies:
-                    assert gate["effort_per_model"] == {expected_model: "high"}
+                    assert gate._effort == "high"
                     assert expected_model in receipt["effort_applied"]
                 else:
                     assert expected_model in receipt["effort_dropped"]

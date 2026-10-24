@@ -14,49 +14,49 @@ vi.mock('../api/client', () => ({
 }))
 
 import { api } from '../api/client'
-import { AcpAdapter } from '../providers/adapters/acp'
+import { DirectAdapter } from '../providers/adapters/direct'
 
 const agentDetail = api.agentDetail as unknown as ReturnType<typeof vi.fn>
 const agentResolvedModel = api.agentResolvedModel as unknown as ReturnType<typeof vi.fn>
 const kirocrewConfig = api.kirocrewConfig as unknown as ReturnType<typeof vi.fn>
 
-describe('AcpAdapter.resolveModel — delegates to the backend resolver', () => {
+describe('DirectAdapter.resolveModel — delegates to the backend resolver', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('returns the model the backend resolved for the agent', async () => {
     agentResolvedModel.mockResolvedValue({ model: 'claude-opus-5' })
-    expect(await new AcpAdapter().resolveModel('oncall')).toBe('claude-opus-5')
+    expect(await new DirectAdapter().resolveModel('oncall')).toBe('claude-opus-5')
   })
 
   it('passes the KiroCrew agent name through, not a kiro template name', async () => {
     // Several agents can share one template, so the agent name is the only
     // input that can select a per-agent pin.
     agentResolvedModel.mockResolvedValue({ model: 'claude-opus-5' })
-    await new AcpAdapter().resolveModel('oncall')
+    await new DirectAdapter().resolveModel('oncall')
     expect(agentResolvedModel).toHaveBeenCalledWith('oncall')
   })
 
   it('passes the owning app through, so its own model setting is part of the answer', async () => {
     agentResolvedModel.mockResolvedValue({ model: 'claude-haiku-5' })
-    expect(await new AcpAdapter().resolveModel('oncall', 'demo-app')).toBe('claude-haiku-5')
+    expect(await new DirectAdapter().resolveModel('oncall', 'demo-app')).toBe('claude-haiku-5')
     expect(agentResolvedModel).toHaveBeenCalledWith('oncall', 'demo-app')
   })
 
   it('does NOT re-derive the precedence client-side', async () => {
     agentResolvedModel.mockResolvedValue({ model: 'claude-opus-5' })
-    await new AcpAdapter().resolveModel('oncall')
+    await new DirectAdapter().resolveModel('oncall')
     expect(agentDetail).not.toHaveBeenCalled()
     expect(kirocrewConfig).not.toHaveBeenCalled()
   })
 
   it('reports "" when every tier defers, so callers keep the backend-picks semantics', async () => {
     agentResolvedModel.mockResolvedValue({ model: '' })
-    expect(await new AcpAdapter().resolveModel('oncall')).toBe('')
+    expect(await new DirectAdapter().resolveModel('oncall')).toBe('')
   })
 
   it('survives a resolver failure by reporting no model rather than throwing', async () => {
     agentResolvedModel.mockRejectedValue(new Error('503'))
-    expect(await new AcpAdapter().resolveModel('oncall')).toBe('')
+    expect(await new DirectAdapter().resolveModel('oncall')).toBe('')
   })
 
   it('survives a partially-mocked api client without throwing', async () => {
@@ -66,25 +66,25 @@ describe('AcpAdapter.resolveModel — delegates to the backend resolver', () => 
     agentResolvedModel.mockImplementation(() => {
       throw new TypeError('api.agentResolvedModel is not a function')
     })
-    expect(await new AcpAdapter().resolveModel('oncall')).toBe('')
+    expect(await new DirectAdapter().resolveModel('oncall')).toBe('')
   })
 })
 
-describe('AcpAdapter.resolveDefaultEffort', () => {
+describe('DirectAdapter.resolveDefaultEffort', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('returns the configured default effort', async () => {
     kirocrewConfig.mockResolvedValue({ agent: { reasoning_effort: 'high' } })
-    expect(await new AcpAdapter().resolveDefaultEffort(() => kirocrewConfig())).toBe('high')
+    expect(await new DirectAdapter().resolveDefaultEffort(() => kirocrewConfig())).toBe('high')
   })
 
   it('returns "" when unset, so callers keep the model-default semantics', async () => {
     kirocrewConfig.mockResolvedValue({ agent: {} })
-    expect(await new AcpAdapter().resolveDefaultEffort(() => kirocrewConfig())).toBe('')
+    expect(await new DirectAdapter().resolveDefaultEffort(() => kirocrewConfig())).toBe('')
   })
 
   it('returns "" on a failed config read rather than throwing', async () => {
     kirocrewConfig.mockRejectedValue(new Error('boom'))
-    expect(await new AcpAdapter().resolveDefaultEffort(() => kirocrewConfig())).toBe('')
+    expect(await new DirectAdapter().resolveDefaultEffort(() => kirocrewConfig())).toBe('')
   })
 })

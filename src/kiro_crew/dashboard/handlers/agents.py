@@ -1396,6 +1396,15 @@ async def api_models(request: web.Request) -> web.Response:
     adapter's namespace, because they do not accept ids from that catalog.
     """
     cfg = await asyncio.to_thread(KiroCrewConfig.load)
+    if cfg.agent.provider == "direct":
+        return web.json_response([
+            {"id": row["id"], "name": row.get("name", row["id"]),
+             "model_name": row["id"], "description": row.get("name", row["id"]),
+             "context_window": row.get("context_window", 1000000),
+             "modelId": row["id"], "provider": "direct",
+             "contextWindow": row.get("context_window", 1000000)}
+            for row in cfg.agent.direct_model.get("models", [])
+        ])
     backend = getattr(cfg.agent, "acp_backend", "")
     if backend == ACP_BACKEND_CLAUDE:
         return web.json_response(

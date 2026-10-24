@@ -49,7 +49,7 @@ from kiro_crew.acp.client import (
     model_is_unusable,
     resolve_pin_spelling,
 )
-from kiro_crew.acp.types import (
+from kiro_crew.runtime_types import (
     ACP_BACKENDS_MEMBER_CAPABILITIES,
     EVENT_AGENT_SWITCHED,
     EVENT_CLEAR_STATUS,

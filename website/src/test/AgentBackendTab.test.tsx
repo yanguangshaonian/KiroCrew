@@ -706,7 +706,7 @@ describe('AgentBackendTab switching', () => {
     // stale. Reset rather than invalidate, and drop localStorage first, so a failing
     // first fetch degrades to auto-only rather than to the old backend's ids.
     localStorage.setItem(
-      'kc.acp.models.v1',
+      'kc.direct.models.v1',
       JSON.stringify({ ts: Date.now(), models: [{ name: 'auto', description: '' }] }),
     )
     const { qc } = wrapWithClient()
@@ -719,7 +719,7 @@ describe('AgentBackendTab switching', () => {
     await waitFor(() => expect(reset).toHaveBeenCalledWith({ queryKey: ['available-models'] }))
     // The old rows are gone the moment the switch saves, not after a refetch.
     expect(qc.getQueryData(['available-models', 'acp'])).toBeUndefined()
-    expect(localStorage.getItem('kc.acp.models.v1')).toBeNull()
+    expect(localStorage.getItem('kc.direct.models.v1')).toBeNull()
   })
 
   it('leaves the model list alone when the save is rejected', async () => {

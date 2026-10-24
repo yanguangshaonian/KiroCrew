@@ -43,7 +43,7 @@ from kiro_crew.acp.liveness import (
     consult_offloaded,
 )
 from kiro_crew.acp.session_provider import AcpSessionProvider
-from kiro_crew.acp.types import PROVIDER_LABEL_CLAUDE, PROVIDER_LABEL_DEFAULT
+from kiro_crew.runtime_types import PROVIDER_LABEL_CLAUDE, PROVIDER_LABEL_DEFAULT
 from kiro_crew.agent_sdk.drivers.acp_vocab import (  # noqa: F401 - STOP_* resolved by run_turn.py/run_yields.py via bind_component_globals
     STOP_CLASS_CANCELLED,
     STOP_CLASS_FAILED,
@@ -327,6 +327,7 @@ from kiro_crew.subagent_parts.host_memory import (  # noqa: F401
 )
 from kiro_crew.subagent_parts.manager import SubagentManager
 from kiro_crew.subagent_parts.model_choice import (  # noqa: F401
+    _direct_effort_support,
     _effort_channel,
     _effort_judged_at_session_start,
     _resolved_model_of,

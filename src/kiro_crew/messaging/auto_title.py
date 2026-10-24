@@ -68,7 +68,7 @@ from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from typing import Any, NamedTuple
 
-from kiro_crew.acp.types import EVENT_COMPLETE, EVENT_PERMISSION_REQUEST, EVENT_TEXT_CHUNK
+from kiro_crew.runtime_types import EVENT_COMPLETE, EVENT_PERMISSION_REQUEST, EVENT_TEXT_CHUNK
 from kiro_crew.constants import DENY_CAUSE_SURFACE_POLICY
 from kiro_crew.context_assembly.markers import neutralize_untrusted_text
 from kiro_crew.label_guard import ends_like_sentence, is_verdict_reply, looks_like_prose

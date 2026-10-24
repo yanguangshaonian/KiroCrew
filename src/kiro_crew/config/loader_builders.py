@@ -568,6 +568,7 @@ def _build_agent_config(agent_data: dict) -> AgentConfig:
         ),
         reasoning_effort=section.get("reasoning_effort"),
         provider=section.get("provider"),
+        direct_model=section.get("direct_model"),
         mcp_registry_mode=section.read("mcp_registry_mode", _safe_bool),
         mcp_quarantine_after_failures=section.read("mcp_quarantine_after_failures", _safe_int),
         acp_backend=_read_backend_choice(section, agent_data, "acp_backend"),

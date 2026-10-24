@@ -432,6 +432,9 @@ def read_listener_secret(port: int, host: str) -> str:
     shared = set.intersection(*per_family)
     if not shared:
         return ""
+    current = read_secret(port)
+    if current in shared:
+        return current
     # A single generation writes ONE secret under every address it bound, so the
     # intersection is normally a singleton. If a race left two, either is the live
     # generation's own value (both were minted by it), so any is safe; sort for a

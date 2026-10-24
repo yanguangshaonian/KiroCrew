@@ -1,5 +1,16 @@
 # Config Module
 
+## 本地分叉模型配置
+
+`agent.provider` 为 `direct`. `agent.direct_model` 保存完整 Chat Completions
+URL、API key、默认模型及模型能力列表. 网页通过
+`GET/PUT /api/config/direct-model` 读写; GET 只返回 `has_api_key`, PUT 的空 key
+保留已有值. 写入使用 `update_config_locked`, 更新后续会话工厂, 不主动终止活动
+会话. 内置 Agent 在下一轮读取更新后的连接配置.
+
+模型连接保存使用非阻塞配置写锁. 锁占用返回 HTTP 409, 不排队等待;
+前端模型连接读写请求有 15 秒截止时间, 保存失败保留表单草稿.
+
 ## Overview
 
 The config package loads runtime configuration from `~/.kiro/crew/config.json`

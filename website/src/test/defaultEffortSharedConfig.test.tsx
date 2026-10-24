@@ -18,7 +18,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import { api } from '../api/client'
-import { AcpAdapter } from '../providers/adapters/acp'
+import { DirectAdapter } from '../providers/adapters/direct'
 import { useKirocrewConfigReader } from '../hooks/useKirocrewConfigReader'
 
 const kirocrewConfig = api.kirocrewConfig as unknown as ReturnType<typeof vi.fn>
@@ -31,7 +31,7 @@ function wrapperFor(qc: QueryClient) {
 /** The two readers as the chat page mounts them: the sidebar's config
  *  observer and the composer's default-effort query. */
 function useBootReaders() {
-  const provider = new AcpAdapter()
+  const provider = new DirectAdapter()
   const cfg = useQuery({ queryKey: ['kirocrewConfig'], queryFn: () => api.kirocrewConfig() })
   const readKirocrewConfig = useKirocrewConfigReader()
   const effort = useQuery({
@@ -60,7 +60,7 @@ describe('default effort reads the shared kirocrewConfig query', () => {
       const read = useKirocrewConfigReader()
       return useQuery({
         queryKey: ['default-effort', 'acp'],
-        queryFn: () => new AcpAdapter().resolveDefaultEffort(read),
+        queryFn: () => new DirectAdapter().resolveDefaultEffort(read),
       }).data
     }, { wrapper: wrapperFor(qc) })
     await waitFor(() => expect(result.current).toBe('low'))
@@ -74,7 +74,7 @@ describe('default effort reads the shared kirocrewConfig query', () => {
       const read = useKirocrewConfigReader()
       return useQuery({
         queryKey: ['default-effort', 'acp'],
-        queryFn: () => new AcpAdapter().resolveDefaultEffort(read),
+        queryFn: () => new DirectAdapter().resolveDefaultEffort(read),
       })
     }, { wrapper: wrapperFor(qc) })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))

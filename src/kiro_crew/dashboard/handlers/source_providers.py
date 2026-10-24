@@ -856,6 +856,8 @@ def owner_view_for_request(request: web.Request) -> bool:
 
 def is_owner_dashboard_request(request: web.Request) -> bool:
     """Return whether request has a configured or implicit local owner identity."""
+    if request.get("user") == "local-owner" and request.get("is_dashboard_user") is True:
+        return True
     state = request.app["state"]
     owner_id = str(getattr(state, "owner_id", "") or "")
     caller = str(request.get("user") or "")

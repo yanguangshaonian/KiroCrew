@@ -231,11 +231,6 @@ from kiro_crew.dashboard.handlers.hooks import (  # noqa: E402, F401
     api_webhooks,
     api_webhooks_switch,
 )
-from kiro_crew.dashboard.handlers.kiro_prerequisite import (  # noqa: E402, F401
-    api_kiro_prerequisite_repair_specs,
-    api_kiro_prerequisite_status,
-    api_kiro_prerequisite_update_cli,
-)
 from kiro_crew.dashboard.handlers.mcp import (  # noqa: E402, F401
     _bg_mcp_probe,
     _sync_mcp_to_agent,

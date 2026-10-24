@@ -10,10 +10,24 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable
 from functools import cached_property
-from typing import TYPE_CHECKING, AsyncContextManager, Literal, Protocol, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    AsyncContextManager,
+    Literal,
+    Protocol,
+    runtime_checkable,
+)
+
+from kiro_crew.constants import COMPACT_WAIT_TIMEOUT_SECS
+from kiro_crew.essential_delivery import EssentialDelivery
+
+# The abort address a provider mints. Safe at module scope despite this module's
+# import-light rule: ``abort`` imports only ``mcp_gateway.transport`` outside the
+# standard library, and that module is already loaded by the time this one is.
+from kiro_crew.mcp_gateway.abort import RuntimeAbortTarget
 
 # Event kinds — re-exported from the single source of truth
-from kiro_crew.acp.types import (  # noqa: F401
+from kiro_crew.runtime_types import (  # noqa: F401
     EVENT_AGENT_SWITCHED,
     EVENT_CLEAR_STATUS,
     EVENT_COMPACTION_STATUS,
@@ -28,14 +42,7 @@ from kiro_crew.acp.types import (  # noqa: F401
     EVENT_TOOL_CALL_UPDATE,
     EVENT_TOOL_RESULT,
 )
-from kiro_crew.acp.types import AcpEvent as LLMEvent  # noqa: F401
-from kiro_crew.constants import COMPACT_WAIT_TIMEOUT_SECS
-from kiro_crew.essential_delivery import EssentialDelivery
-
-# The abort address a provider mints. Safe at module scope despite this module's
-# import-light rule: ``abort`` imports only ``mcp_gateway.transport`` outside the
-# standard library, and that module is already loaded by the time this one is.
-from kiro_crew.mcp_gateway.abort import RuntimeAbortTarget
+from kiro_crew.runtime_types import AcpEvent as LLMEvent  # noqa: F401
 from kiro_crew.start_priority import StartPriority
 
 if TYPE_CHECKING:  # pragma: no cover - typing only

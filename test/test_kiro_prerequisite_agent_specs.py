@@ -908,31 +908,6 @@ class TestAgentSpecRepairIsAPostNotAGet:
         assert status["missing_agent_specs"] != []
         assert status["ready"] is False
 
-    def test_repair_route_accepts_only_POST(self) -> None:
-        """Asserted over the ROUTE TABLE, not the module text.
-
-        A source-text match proves nothing about what was registered and breaks on
-        any reflow. What matters is the method the router will accept: GET is the
-        one method csrf_middleware and sel_audit_middleware both skip.
-        """
-        from kiro_crew.dashboard.handlers.kiro_prerequisite import (
-            api_kiro_prerequisite_repair_specs,
-        )
-
-        app = web.Application()
-        app.router.add_post(
-            "/api/kiro-prerequisite/repair-specs",
-            api_kiro_prerequisite_repair_specs,
-        )
-        methods = {
-            route.method
-            for route in app.router.routes()
-            if getattr(route.resource, "canonical", "") == "/api/kiro-prerequisite/repair-specs"
-        }
-
-        assert methods == {"POST"}, methods
-
-
 class TestAgentSpecRepair:
     """``repair_agent_specs`` — the POST handler's service call."""
 

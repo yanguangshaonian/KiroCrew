@@ -1,5 +1,16 @@
 # Security Module
 
+## 本地单用户分叉
+
+本分叉的网页认证中间件为请求设置固定 `local-owner` 管理员身份, HTTP 和
+WebSocket 不要求 Gateway token. 网页 owner 检查识别该身份; 单用户子任务
+默认使用现有自动启动审批分支. 这是本分叉的部署模型, 下文上游多用户认证
+说明不代表此路径. 内部工具仍携带会话上下文, MCP 服务继续使用原有处理器.
+内置 Agent 执行工具前发送现有权限事件, 由消费方运行原 HookManager、信任
+规则与人工审批. 拒绝或审批超时不执行工具, 待审批时停止生成会清理等待状态.
+监听器侧车同时存在旧、新候选凭据时, 优先选用满足地址覆盖的当前端口凭据,
+避免重启后旧精确地址侧车遮蔽新通配监听器; 不跳过地址覆盖检查.
+
 ## Overview
 
 Kiro Crew implements defense-in-depth security across multiple layers: OS-level process isolation, credential path protection, input/output validation, authentication, authorization, and audit logging. This document consolidates all security controls and the vulnerabilities they address.

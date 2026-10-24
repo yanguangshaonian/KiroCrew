@@ -15,10 +15,6 @@ from pathlib import Path
 
 import kiro_crew.config.resolution as _resolution
 from kiro_crew import model_registry, model_scope, platform_compat
-from kiro_crew.agent_sdk.backends import (
-    ACP_BACKENDS_EFFORT_FROM_ADVERTISED_OPTION,
-    resolve_cc_permission_mode,
-)
 from kiro_crew.agent_sdk.capabilities import MODEL_NAMESPACE_ACP, capabilities_for
 from kiro_crew.config.integration_sections import AppSettingsConfig, AwsConfig
 from kiro_crew.config.loader_agents import resolve_crew_identity
@@ -112,8 +108,6 @@ from kiro_crew.config.sections import (
     _meta,
     coerce_effort,
 )
-from kiro_crew.effort import is_valid_effort, model_supports_effort
-from kiro_crew.mcp_gateway.rewriter import default_overlay_dir, default_socket_path
 
 logger = logging.getLogger("kiro_crew.config.loader")
 
@@ -970,6 +964,15 @@ class KiroCrewConfig:
         docstring. ``""`` means nothing is pinned anywhere: the backend resolves
         the model itself and the effort overlay cannot be keyed.
         """
+        if self.agent.provider == "direct":
+            candidates = [model_override]
+            if agent and agent != "kirocrew":
+                candidates.append(self._resolve_named_agent_model(agent))
+            candidates.extend([global_model, self.agent.model, self.agent.direct_model.get("model")])
+            return next(
+                (candidate for candidate in candidates if candidate and candidate != DEFAULT_MODEL),
+                "",
+            )
         if global_model is None:
             global_model = self.agent.model
             if global_model == DEFAULT_MODEL:
@@ -1299,226 +1302,24 @@ class KiroCrewConfig:
     def create_provider_factory(self) -> Callable:
         """Return a factory that creates LLMProvider instances from config.
 
-        Kiro Crew is KiroACP-only: the sole provider is the ACP adapter driving
-        the kiro-cli backend. The factory accepts an optional ``session_key`` to
-        create a per-session subdirectory under ``workspace_root()``.
+        内置运行时直接连接模型. session_key 为各会话分配独立工作目录.
         """
-        from kiro_crew.agent_sdk.drivers.acp import build_acp_provider
-        from kiro_crew.session_work_dir import is_disposable_session_key
+        from kiro_crew.providers.direct import DirectProvider
 
-        model = self.agent.model
-        if model == DEFAULT_MODEL:
-            model = self._resolve_agent_model()
-
-        sandbox = self.agent.sandbox
-        tool_search = self.agent.tool_search
-        tool_search_min_pct = self.agent.tool_search_min_pct
-        tool_search_min_tokens = self.agent.tool_search_min_tokens
-
-        # MCP gateway: resolve overlay + socket once, iff some server is stubbed
-        # through the gateway. Routing is what puts a stub in the path, and the
-        # stub is what carries both the render/callback path and any sharing —
-        # so an empty stub set means no stub, no daemon, and no gateway in the
-        # path at all (AcpClient falls through to per-session MCP). Sharing
-        # (``enabled``) is not consulted here: it decides how a stubbed server's
-        # backend is ACQUIRED, and on its own routes nothing.
-        _gw = self.mcp_gateway
-        if _gw.stub_servers:
-            _gw_overlay = _gw.overlay_dir or str(default_overlay_dir())
-            _gw_socket = _gw.socket_path or str(default_socket_path())
-        else:
-            _gw_overlay = None
-            _gw_socket = None
-
-        # Effort-drop warnings already emitted by this factory, keyed by
-        # (resolved model, level) — see the gate below. Benign under threads:
-        # a lost race duplicates one log line, never drops state.
-        _effort_drop_warned: set[tuple[str, str]] = set()
-
-        def _acp(
-            session_key: str | None = None,
-            agent: str | None = None,
-            channel_id: str | None = None,
-            model_override: str | None = None,
-            cwd: str | None = None,
-            extra_env: dict[str, str] | None = None,
-            reasoning_effort_override: str | None = None,
-            crew_agent: str | None = None,
-            # The backend a caller asked for explicitly (``spawn_run(backend=...)``).
-            # NAMED so it is never swallowed by the catch-all: the session would
-            # silently start on the configured default. ``None`` = no override.
-            backend_override: str | None = None,
-            # Per-session opt-in for the claude backend's own permission
-            # classifier. NAMED rather than left to ``**_kwargs`` on purpose: a
-            # caller passing it into the catch-all would be swallowed here and
-            # the session would spawn on the backend's default with no error.
-            permission_mode: str | None = None,
-            shared_scratch: Path | None = None,
-            # The subagent manager's gate-exit start-clock reset for a DEDICATED
-            # subagent process. NAMED for the same reason ``permission_mode``
-            # is: swallowed by the catch-all, the dedicated path would silently
-            # keep charging session-start-gate queue time to the startup
-            # watchdog, which is the exact defect the callback exists to end.
-            on_gate_acquired: Callable[..., None] | None = None,
-            on_gate_queued: Callable[..., None] | None = None,
-            # A Side Chat session allowed read-only tools. NAMED for the same
-            # reason: swallowed by the catch-all, a claude side session would
-            # start with the user's full tool set under READ_ONLY.
-            side_read_only: bool = False,
-            **_kwargs: object,
-        ):  # return type inferred from build_acp_provider (SDK boundary: config may not name AcpProvider)
-            wdir = Path(cwd) if cwd else _session_work_dir(session_key)
-            # Canonical crew identity for the session (keys per-agent watchdog
-            # windows on the handle) — one shared resolution rule, see
-            # resolve_crew_identity.
-            crew_agent = resolve_crew_identity(self, agent, crew_agent)
-            # Resolve the model, highest tier first:
-            #   1. model_override — the caller's explicit pick. The dashboard
-            #      passes the slot's own model, else the Kiro Crew agent's
-            #      configured default (see chat_runner._run_chat).
-            #   2. the bound kiro agent's own pinned model, for a named agent.
-            #      Custom agents MUST resolve here because the ACP
-            #      session/set_mode path switches prompt/tools but not the model,
-            #      so an unset model makes kiro fall back to cli.json's
-            #      chat.defaultModel. Use _resolve_named_agent_model (the kiro
-            #      model slot) to match this backend.
-            #   3. ``model`` — the global agent.model default, already collapsed
-            #      through _resolve_agent_model() at factory-build time. It
-            #      applies to every agent, not just "kirocrew": an agent that
-            #      pins nothing inherits the user's configured default instead of
-            #      silently falling through to the backend's own choice.
-            # "" at the end means nothing is pinned anywhere; AcpClient
-            # normalizes "" to DEFAULT_MODEL, same as None.
-            # Selection + the per-backend id translation live in
-            # acp_effective_model — SHARED with the spawn-side effort verdict
-            # (subagent.py) so the reported outcome cannot drift from what this
-            # gate actually keys on. (Why the translation is keyed on the
-            # backend, and why to_acp_id is the non-claude choice, is documented
-            # on that method.)
-            # Per-session backend selection -- ONE call to the selection gate's
-            # per-session half (members.select_provider_backend: the caller's
-            # explicit backend > member-DM auto-route > configured default). The
-            # factory body carries no
-            # branching of its own, so the kiro construction path gains no
-            # second check (harness-parity H3/H13); resolve_selected_backend
-            # inside the helper applies the same governance/selectability gate
-            # as the persisted field, so a denied or unknown value degrades to
-            # kiro -- the member thread then runs as plain chat and the mount
-            # step logs why.
-            # circular import: members sits above config in the layering.
-            from kiro_crew.members import select_provider_backend
-
-            _backend = select_provider_backend(
-                session_key,
-                self.agent.member_acp_backend,
-                self.agent.acp_backend,
-                backend_override=backend_override,
-            )
-            # Resolved BEFORE the model, and threaded into the resolution: the
-            # model's namespace translation and its pin-scope check both have to
-            # key on the backend this session actually gets, not on the
-            # configured default. A member-DM thread auto-routed to another
-            # harness runs a backend the config does not name, so keying either
-            # on the configured field judges the pin for a namespace that
-            # session never reaches.
-            m = self.acp_effective_model(
-                agent,
-                model_override,
-                global_model=model,
-                namespace=capabilities_for(_backend).model_id_namespace,
-            )
-            # Thread the slot's effort into a per-model override so the kiro
-            # cli.json overlay is written from it at spawn — without this, a
-            # kiro cold start (or the handler's reset-then-respawn) would only
-            # pick up effort already recovered from a pre-existing overlay,
-            # never the freshly-set slot value. Mirrors the _claude_code path.
-            _eff_per_model: dict[str, str] = {}
-            # Everything below an explicit override — the crew's pin, then the
-            # role-aware default — resolves in resolve_session_effort, which the
-            # crews API also serves its readout from. An explicit override (the
-            # dashboard slot's effort, or a sub-agent's resolved "subagent"
-            # effort) still wins over all of it.
-            _eff = reasoning_effort_override or self.resolve_session_effort(agent, crew_agent)
-            # On a harness whose effort capability and vocabulary come from the
-            # option it ADVERTISES, neither check below can answer here. This
-            # factory runs before any session exists, the registry carries none of
-            # the operator's own model ids, and Crew's ladder does not list every
-            # level such a harness offers -- so both facts arrive with
-            # ``session/new``, and ``AcpProvider._resolve_effort`` validates the
-            # level against the advertised list once they do. The level is carried
-            # forward for a member and judged there. Judging it HERE drops it on
-            # every cold start, and the session then runs the adapter's own default
-            # while the dashboard still shows the level the operator picked.
-            _from_option = _backend in ACP_BACKENDS_EFFORT_FROM_ADVERTISED_OPTION
-            _registry_ok = is_valid_effort(_eff) and model_supports_effort(m)
-            # With nothing pinned there is no model id to key the level under
-            # yet: the backend picks the model and reports it on ``session/new``.
-            # The level is carried unkeyed and the provider binds it to the
-            # model the session actually runs (``AcpProvider._bind_unbound_effort``),
-            # which is also where it is judged and, when refused, logged.
-            _unbound_effort = ""
-            if m and _eff and (_from_option or _registry_ok):
-                _eff_per_model[m] = _eff
-            elif not m and _eff and (_from_option or is_valid_effort(_eff)):
-                _unbound_effort = _eff
-            elif _eff and is_valid_effort(_eff):
-                # Single-authority drop warning: a valid requested effort is
-                # being dropped because the resolved model is not
-                # effort-capable. Every surface (spawn, dashboard slot, cron)
-                # funnels through this factory, so one log at the gate covers
-                # them all and cannot drift from the decision it reports on.
-                # Reporting-only — the overlay simply stays unwritten, exactly
-                # as before.
-                #
-                # An EXPLICIT override always warns: a caller's own request
-                # being dropped is the event this gate exists to surface, and
-                # a config-default drop must not burn its dedupe key first
-                # (Design review on this PR). Only the static config default
-                # (base_effort with no override) dedupes per (model, level) —
-                # it is one unchanging configuration fact that would otherwise
-                # repeat on every provider construction (warm-pool fills and
-                # recycles included); a config change rebuilds the factory and
-                # re-arms it.
-                _dedupe = not reasoning_effort_override
-                if not _dedupe or (m, _eff) not in _effort_drop_warned:
-                    if _dedupe:
-                        _effort_drop_warned.add((m, _eff))
-                    logger.warning(
-                        "reasoning effort '%s' will not be applied (session %s) — "
-                        "model '%s' does not support effort configuration",
-                        _eff,
-                        session_key or "?",
-                        m,
-                    )
-            return build_acp_provider(
-                work_dir=wdir,
-                model=m,
-                agent=agent,
-                crew_agent=crew_agent,
-                sandbox_mode=sandbox,
+        def _direct(
+            session_key=None, agent=None, channel_id=None, model_override=None,
+            cwd=None, reasoning_effort_override=None, side_read_only=False,
+            memory_mode="persistent", **kwargs,
+        ):
+            return DirectProvider(
+                settings=self.agent.direct_model,
+                work_dir=cwd or _session_work_dir(session_key),
+                model=self.acp_effective_model(agent, model_override),
                 session_key=session_key,
-                channel_id=channel_id,
-                extra_env=extra_env,
-                acp_backend=_backend,
-                effort_per_model=_eff_per_model,
-                unbound_effort=_unbound_effort,
-                tool_search=tool_search,
-                tool_search_min_pct=tool_search_min_pct,
-                tool_search_min_tokens=tool_search_min_tokens,
-                mcp_gateway_overlay=_gw_overlay,
-                mcp_gateway_socket=_gw_socket,
-                permission_mode=resolve_cc_permission_mode(permission_mode, _backend),
-                # A dedicated subagent process joins its parent's session tree:
-                # the tree's work directory is mounted beside its own scratch
-                # and is what its ``$KIROCREW_SCRATCH`` names (agent_scratch).
-                shared_scratch=shared_scratch,
-                on_gate_acquired=on_gate_acquired,
-                on_gate_queued=on_gate_queued,
+                memory_mode=memory_mode,
                 side_read_only=side_read_only,
-                # Only a work dir DERIVED from a one-run key is the provider's
-                # to reclaim at shutdown; an explicit ``cwd`` is the caller's
-                # directory whatever the key says (session_work_dir).
-                disposable_work_dir=not cwd and is_disposable_session_key(session_key),
+                reasoning_effort=reasoning_effort_override or self.agent.reasoning_effort,
+                agent=agent,
             )
 
-        return _acp
+        return _direct

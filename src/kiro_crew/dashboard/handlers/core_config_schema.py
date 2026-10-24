@@ -102,7 +102,7 @@ _MODEL_PIN_PATTERN = rf"(?:[A-Za-z0-9][A-Za-z0-9._\-\[\]]*|{QUALIFIED_MODEL_PATT
 
 
 _EDITABLE_CONFIG: dict[str, dict] = {
-    "agent.provider": {"type": "enum", "values": ["acp"]},
+    "agent.provider": {"type": "enum", "values": ["direct"]},
     # Which ACP agent drives a session, in the config-file vocabulary: "kiro" =
     # kiro-cli, "kas" = kiro-agent, "" = no choice (the default).
     # ``values_fn`` rather than a literal, because the set WIDENS after this module

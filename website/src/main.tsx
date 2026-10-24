@@ -38,7 +38,6 @@ import { LanguageProvider } from './i18n/LanguageProvider'
 import App from './App'
 import { queryClient } from './api/queryClient'
 import ErrorBoundary from './components/ErrorBoundary'
-import DashboardBootstrap from './components/DashboardBootstrap'
 import { installPageZoomSuppression } from './utils/pageZoom'
 import { installStaleShellHeal } from './lib/staleShellHeal'
 import { captureSafeReload, reloadKeepingSafe } from './lib/safeReload'
@@ -216,7 +215,7 @@ const appTree = (
                         element={(
                           <BrandingProvider>
                             <ProviderProvider>
-                              <DashboardBootstrap>{withCommitProfiler('app', <App />)}</DashboardBootstrap>
+                              {withCommitProfiler('app', <App />)}
                             </ProviderProvider>
                           </BrandingProvider>
                         )}

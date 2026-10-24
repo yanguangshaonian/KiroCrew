@@ -202,6 +202,22 @@ def _spawn_effective_model(
         return None
 
 
+def _direct_effort_support(model: str, level: str = "") -> bool | None:
+    from kiro_crew.config.loader import KiroCrewConfig
+
+    try:
+        cfg = KiroCrewConfig.load()
+    except (OSError, ValueError):
+        return None
+    if cfg.agent.provider != "direct" or not cfg.agent.direct_model.get("models"):
+        return None
+    return any(
+        row.get("id") == model
+        and (level in row.get("reasoning_effort", []) if level else bool(row.get("reasoning_effort")))
+        for row in cfg.agent.direct_model.get("models", [])
+    )
+
+
 def _effort_channel(backend: str | None) -> str | None:
     """How *backend* receives a reasoning-effort level, or ``None`` if it takes none.
 
@@ -260,7 +276,13 @@ def effort_drop_reason(
     Reporting-only: never raises and never influences whether or how a spawn
     proceeds. ``crew_agent`` has the same namespace semantics as allocation.
     """
-    if not reasoning_effort or _effort_judged_at_session_start(backend):
+    if not reasoning_effort:
+        return ""
+    resolved = _spawn_effective_model(model, agent, crew_agent=crew_agent, backend=backend)
+    direct_support = _direct_effort_support(resolved or "", reasoning_effort)
+    if direct_support is not None:
+        return "" if not resolved or direct_support else f"模型 '{resolved}' 未配置思考等级."
+    if _effort_judged_at_session_start(backend):
         return ""
     if _effort_channel(backend) is None:
         return f"backend '{backend}' takes no reasoning-effort level, so it is not applied"
@@ -292,7 +314,13 @@ def effort_applied_note(
     selection leaves all three empty, and so does a per-spawn *backend* that
     advertises its own effort levels. Reporting-only, same totality contract.
     """
-    if not reasoning_effort or _effort_judged_at_session_start(backend):
+    if not reasoning_effort:
+        return ""
+    resolved = _spawn_effective_model(model, agent, crew_agent=crew_agent, backend=backend)
+    direct_support = _direct_effort_support(resolved or "", reasoning_effort)
+    if direct_support is not None:
+        return f"{resolved} → reasoning_effort" if direct_support else ""
+    if _effort_judged_at_session_start(backend):
         return ""
     resolved = _spawn_effective_model(model, agent, crew_agent=crew_agent, backend=backend)
     if not resolved or not model_supports_effort(resolved):
@@ -327,7 +355,9 @@ def effort_pending_note(
     :func:`effort_drop_reason` and :func:`effort_applied_note`, same totality
     contract.
     """
-    if not reasoning_effort or _effort_judged_at_session_start(backend):
+    if not reasoning_effort or _direct_effort_support(model) is not None:
+        return ""
+    if _effort_judged_at_session_start(backend):
         return ""
     if _effort_channel(backend) is None:
         return ""

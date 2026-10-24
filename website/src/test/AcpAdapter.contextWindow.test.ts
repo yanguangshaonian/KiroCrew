@@ -21,7 +21,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import { api } from '../api/client'
-import { AcpAdapter } from '../providers/adapters/acp'
+import { DirectAdapter } from '../providers/adapters/direct'
 
 /** The /api/models rows these fixtures feed the adapter. The adapter's own
  *  RawModel is module-private, so mirror only the fields set here — both window
@@ -35,14 +35,14 @@ type ModelRow = {
 /** `api.models` as replaced by vi.mock above. */
 type ModelsMock = Mock<() => Promise<ModelRow[]>>
 
-describe('AcpAdapter context-window resolution', () => {
+describe('DirectAdapter context-window resolution', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
   })
 
   it('learns windows from the kiro branch field (context_window_tokens)', async () => {
-    const adapter = new AcpAdapter()
+    const adapter = new DirectAdapter()
     // Before the list loads there is nothing to learn — the bundled snapshot has
     // no entry for these ids, so both read as the reference default.
     expect(adapter.getContextWindow('claude-opus-5')).toBe(200_000)
@@ -62,7 +62,7 @@ describe('AcpAdapter context-window resolution', () => {
     ;(api.models as ModelsMock).mockResolvedValue([
       { model_name: 'kimi-k3', context_window: 1_000_000 },
     ])
-    const adapter = new AcpAdapter()
+    const adapter = new DirectAdapter()
     await adapter.fetchAvailableModels()
     expect(adapter.getContextWindow('kimi-k3')).toBe(1_000_000)
   })
@@ -71,14 +71,14 @@ describe('AcpAdapter context-window resolution', () => {
     ;(api.models as ModelsMock).mockResolvedValue([
       { model_name: 'claude-opus-4.8' }, // gateway predating the enrichment
     ])
-    const adapter = new AcpAdapter()
+    const adapter = new DirectAdapter()
     const models = await adapter.fetchAvailableModels()
     expect(models[0].contextWindow).toBe(1_000_000) // from model_tokens.json
     expect(adapter.getContextWindow('claude-opus-4.8')).toBe(1_000_000)
   })
 
   it('ignores a non-positive window rather than overwriting a learned one', async () => {
-    const adapter = new AcpAdapter()
+    const adapter = new DirectAdapter()
     ;(api.models as ModelsMock).mockResolvedValue([
       { model_name: 'minimax-m2.5', context_window_tokens: 196_000 },
     ])
@@ -96,7 +96,7 @@ describe('AcpAdapter context-window resolution', () => {
     ;(api.models as ModelsMock).mockResolvedValue([
       { model_name: 'grok-4.3', context_window_tokens: 1_000_000 },
     ])
-    const adapter = new AcpAdapter()
+    const adapter = new DirectAdapter()
     await adapter.fetchAvailableModels()
     // A brand-new id the bundled map will never list resolves correctly with no
     // frontend release, which is the point of reading it from the backend.
@@ -109,7 +109,7 @@ describe('AcpAdapter context-window resolution', () => {
     ;(api.models as ModelsMock).mockResolvedValue([
       { model_name: 'auto', context_window_tokens: 1_000_000 },
     ])
-    const adapter = new AcpAdapter()
+    const adapter = new DirectAdapter()
     await adapter.fetchAvailableModels()
     expect(adapter.getContextWindow('auto')).toBe(1_000_000)
     // The auto-only degraded fallback quotes the same learned figure instead of

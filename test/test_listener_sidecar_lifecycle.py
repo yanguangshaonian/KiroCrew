@@ -53,6 +53,22 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 # ---------------------------------------------------------------------------
 
 
+class TestReadListenerSecret:
+    def test_prefers_current_port_secret_over_stale_exact_address(self, home: Path) -> None:
+        run_marker.secret_path(5476).write_text("z-current", encoding="utf-8")
+        run_marker.listener_secret_path(5476, "127.0.0.1").write_text("a-stale", encoding="utf-8")
+        run_marker.listener_secret_path(5476, "0.0.0.0").write_text("z-current", encoding="utf-8")
+
+        assert run_marker.read_listener_secret(5476, "127.0.0.1") == "z-current"
+
+    def test_current_port_secret_does_not_cover_missing_family(self, home: Path) -> None:
+        run_marker.secret_path(5476).write_text("z-current", encoding="utf-8")
+        run_marker.listener_secret_path(5476, "0.0.0.0").write_text("z-current", encoding="utf-8")
+        run_marker.listener_secret_path(5476, "::1").write_text("a-stale", encoding="utf-8")
+
+        assert run_marker.read_listener_secret(5476, "localhost") == ""
+
+
 class TestWithdrawPublishedListener:
     def test_removes_the_file_and_the_in_memory_claim(self, home: Path) -> None:
         """Both halves. The in-memory set is what a later clear_marker deletes from."""

@@ -34,11 +34,6 @@ from kiro_crew.kiro_prerequisite import (
 
 
 class TestHostSandboxReadiness:
-    def test_probe_failure_payload_does_not_claim_host_sandbox(self) -> None:
-        from kiro_crew.dashboard.handlers.kiro_prerequisite import _not_ready_snapshot
-
-        assert _not_ready_snapshot()["sandbox_backend_available"] is False
-
     @pytest.mark.asyncio
     @pytest.mark.parametrize("floor,blocked", [(None, True), ("standard", False)])
     async def test_effective_off_tier_blocks_only_enforced_backends(

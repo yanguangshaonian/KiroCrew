@@ -16,7 +16,7 @@ from pathlib import Path
 
 from kiro_crew import session_map_links as _links
 from kiro_crew import session_map_store as _store
-from kiro_crew.acp.types import PROVIDER_LABEL_DEFAULT
+from kiro_crew.runtime_types import PROVIDER_LABEL_DEFAULT
 from kiro_crew.atomic_write import replace_with_retry  # noqa: F401
 from kiro_crew.config.paths import config_dir, kiro_sessions_dir
 from kiro_crew.messaging.link import (  # noqa: F401
@@ -625,6 +625,14 @@ class SessionMap:
         if not entry:
             return None
         sid = entry["sid"]
+        if entry.get("provider") == "direct":
+            from kiro_crew.config.paths import config_dir
+
+            if sid and (config_dir() / "direct_sessions" / f"{sid}.json").is_file():
+                return sid
+            if sid:
+                self._repair_or_remove_stale(matched_key)
+            return None
         # Only kiro-cli keeps transcripts at a flat path this process can stat.
         # For every other backend the sid's validity is decided by session/load
         # itself, so skip the file check rather than pruning a live session.

@@ -12,12 +12,12 @@ instead of raising.
 from __future__ import annotations
 
 import difflib
-import json
 import re
 from typing import Any
 
 from kiro_crew.acp._dispatch_parts.tool_call_identity import is_shell_kind
 from kiro_crew.acp.types import TOOL_PURPOSE_KEYS
+from kiro_crew.json_rendering import UNSERIALISABLE_SIBLING_VALUE, _dumps_degraded  # noqa: F401
 from kiro_crew.security import redact_credentials, redact_exfiltration_urls
 
 # Appended when a diff is cut at ``max_len``. Uses the unified-diff escape
@@ -278,35 +278,3 @@ def redact_backend_text(text: str) -> str:
 #: (see :func:`_dumps_degraded`). Visible in the
 #: transcript on purpose: the user can see that detail is missing, which is the
 #: whole difference between this and dropping the field.
-UNSERIALISABLE_SIBLING_VALUE = "[[value omitted: nested too deeply to serialise]]"
-
-
-def _dumps_degraded(payload: Any, **kwargs: Any) -> str:
-    """``json.dumps`` that degrades to readable text instead of raising.
-
-    Every encode on the dispatch path serialises a payload whose shape the agent
-    backend chooses, so the encoder can always be pushed past its ceiling:
-    ``json.dumps`` raises ``RecursionError`` on a sufficiently nested structure
-    -- a ``RuntimeError``, which the ``(TypeError, ValueError)`` arm that guards
-    one of these sites does not catch and the others do not guard at all, so the
-    raise escapes frame rendering and aborts the whole agent turn. The intended
-    cost of an unrenderable frame is that ONE frame, degraded visibly, never the
-    turn. Every encode on this path gets the same refusal posture.
-
-    A ``TypeError``/``ValueError`` refusal degrades to ``str(payload)`` -- the
-    payload still has a repr, and this preserves byte-identically the arm that
-    :func:`_build_tool_refinement_event` already carried. A ``RecursionError``
-    refusal cannot count on that (``repr`` recurses too, just with a different
-    ceiling than the encoder's), so it degrades to the
-    :data:`UNSERIALISABLE_SIBLING_VALUE` placeholder, and the ``str`` fallback
-    keeps its own arm for the payload that is both deep and unencodable.
-    """
-    try:
-        return json.dumps(payload, **kwargs)
-    except (TypeError, ValueError):
-        try:
-            return str(payload)
-        except RecursionError:
-            return UNSERIALISABLE_SIBLING_VALUE
-    except RecursionError:
-        return UNSERIALISABLE_SIBLING_VALUE

@@ -20,7 +20,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Callable
 
-from kiro_crew.acp.types import STOP_REASON_END_TURN
+from kiro_crew.runtime_types import STOP_REASON_END_TURN
 from kiro_crew.config.loader import KiroCrewConfig
 from kiro_crew.context import ui_language_tag
 from kiro_crew.dashboard.chat_utils import (

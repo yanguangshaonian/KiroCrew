@@ -43,7 +43,7 @@ from kiro_crew.metrics.sessions import (
 from kiro_crew.start_priority import PrioritySemaphore, StartPriority
 
 if TYPE_CHECKING:
-    from kiro_crew.acp.types import AcpEvent
+    from kiro_crew.runtime_types import AcpEvent
     from kiro_crew.providers.base import LLMProvider
 
 #: Tree-RSS ceiling (MiB) for the persistent background runtime when
@@ -260,15 +260,14 @@ class _ProviderBgSession:
         *,
         allow_image: bool = True,
     ) -> AsyncIterator[AcpEvent]:
-        # timeout is accepted for AcpSessionHandle signature parity; the
-        # underlying provider/client manages its own stale-turn watchdog.
-        await self._sess.semaphore.acquire()
-        self._sem_held = True
-        try:
-            async for event in self._sess.provider.stream(message, allow_image=allow_image):
-                yield event
-        finally:
-            self._release()
+        async with asyncio.timeout(1800 if timeout is None else timeout):
+            await self._sess.semaphore.acquire()
+            self._sem_held = True
+            try:
+                async for event in self._sess.provider.stream(message, allow_image=allow_image):
+                    yield event
+            finally:
+                self._release()
 
     async def reject_tool(self, request_id: str | int) -> None:
         await self._sess.provider.reject_tool(request_id)
@@ -359,6 +358,9 @@ class BackgroundSessionRuntime:
                 return
         # Create outside lock
         if not self._owner._provider_factory:
+            return
+        cfg = self._owner._cfg
+        if cfg.agent.provider == "direct" and not cfg.agent.direct_model.get("model"):
             return
         # Before the permit: a defaulted KAS waits (bounded) for the kiro-cli
         # floor, so this session starts on the backend the verdict chose.

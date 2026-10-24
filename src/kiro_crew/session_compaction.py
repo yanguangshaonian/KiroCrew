@@ -1185,7 +1185,7 @@ class CompactionCoordinator:
                 nonlocal result_wait_used
                 # Keep this lazy: importing the ACP package eagerly recreates
                 # the providers/session cycle avoided by this module boundary.
-                from kiro_crew.acp.types import EVENT_COMPACTION_STATUS
+                from kiro_crew.runtime_types import EVENT_COMPACTION_STATUS
 
                 status: str | None = None
                 async for event in session.provider.stream_command("/compact"):

@@ -44,6 +44,31 @@
   <a href="#docs-and-contributing">Docs</a>
 </p>
 
+## 本地直接模型分叉
+
+此工作区的分叉使用内置 Python Agent 循环直接调用 OpenAI 兼容的
+Chat Completions API. 默认会话工厂为 `direct`, 不启动外部 Agent CLI.
+网页使用固定单用户身份, 访问不需要 Gateway token.
+
+```bash
+bash dev-direct.sh --port 5476
+```
+
+打开 `http://localhost:5476`, 在设置的聊天模型分区修改模型 URL、API key、
+默认模型和模型能力列表. 运行数据位于 `.direct-home`, 可通过 `KIROCREW_HOME`
+覆盖. 该目录不纳入 Git. 模型连接也可通过 `agent.direct_model` 配置;
+`KIROCREW_MODEL_API_KEY` 环境变量优先于配置中的 key.
+
+保留的回归测试:
+
+```bash
+timeout -k 3s 60s .venv/bin/python -m unittest discover -s test -p test_direct_provider.py -v
+```
+
+内置路径支持流式文本与思考、工具调用、文件和命令工具、MCP、历史持久化、
+模型切换、思考等级、取消、token 统计和摘要压缩. 当前仓库仍保留上游 ACP
+兼容模块与相关文档, 它们的全面删除与剩余功能验证见工作区的改造清单.
+
 ## Quick start
 
 You choose how to run Kiro Crew: the desktop app with automatic updates, a

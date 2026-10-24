@@ -353,6 +353,10 @@ async def api_auth_me(request: web.Request) -> web.Response:
     answer different questions and a caller recovering a session needs both.
     """
     user_id = request.get("user", "")
+    if user_id == "local-owner":
+        return web.json_response({"user": user_id, "user_id": user_id, "owner_ok": True,
+                                  "token_accepted": False, "session_exp": 0,
+                                  "refresh_exp": 0, "authenticated": True})
     if not user_id:
         return web.json_response({"error": "unauthenticated"}, status=401)
 

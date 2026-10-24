@@ -144,7 +144,8 @@ async def _init_services(self: GatewayOrchestrator) -> None:
         logger.info("Slack not configured — starting without the Slack gateway")
 
     # Check kiro-cli version (--agent requires >= 1.26)
-    await self._warn_if_kiro_cli_outdated()
+    if self._cfg.agent.provider != "direct":
+        await self._warn_if_kiro_cli_outdated()
 
     # Auto-repair missing pip deps (handles chicken-and-egg after auto-update)
     try:
@@ -635,7 +636,7 @@ async def _init_dashboard(self: GatewayOrchestrator) -> None:
         dashboard_port = int(self._port_override)
     self._dashboard_port = dashboard_port
     self._configured_host = configured_host
-    self._local_only = is_local_only(configured_host, self._slack_enabled)
+    self._local_only = False if self._cfg.agent.provider == "direct" else is_local_only(configured_host, self._slack_enabled)
     self._dashboard_runner, self.dashboard_state = await start_dashboard(
         sessions=self.sessions,
         crons=self.cron_svc,
@@ -1246,12 +1247,12 @@ async def run(self: GatewayOrchestrator) -> None:
     # Update coordinator — fire-and-forget, NOT awaited. The first cycle runs
     # immediately; later cycles own both checking and automatic application.
     # Registered so shutdown can cancel a stalled network or installer child.
-    print("👻 Checking for updates…")
-    self._update_check_task = asyncio.create_task(self._run_update_checks())
-    # Named so the shutdown's did-not-stop warning can say which update task it was.
-    self._update_check_task.set_name("update-coordinator")
-    self._background_tasks.add(self._update_check_task)
-    self._update_check_task.add_done_callback(self._background_tasks.discard)
+    if self._cfg.agent.provider != "direct":
+        print("👻 Checking for updates…")
+        self._update_check_task = asyncio.create_task(self._run_update_checks())
+        self._update_check_task.set_name("update-coordinator")
+        self._background_tasks.add(self._update_check_task)
+        self._update_check_task.add_done_callback(self._background_tasks.discard)
 
     # ── Announce the dashboard URL — deliberately NOT behind the probe ──
     # The HTTP port is already listening (bound by _init_dashboard above), and
@@ -1269,12 +1270,15 @@ async def run(self: GatewayOrchestrator) -> None:
                 base_url = _cfg_url.rstrip("/")
             else:
                 base_url = f"http://{host}:{self._dashboard_port}"
-            startup_token = generate_token(
-                self._owner_id or "local-startup", ttl_seconds=MAX_SESSION_TTL_SECS
-            )
-            dashboard_url = build_dashboard_url(
-                base_url, startup_token, local_only=self._local_only
-            )
+            if self._cfg.agent.provider == "direct":
+                dashboard_url = base_url
+            else:
+                startup_token = generate_token(
+                    self._owner_id or "local-startup", ttl_seconds=MAX_SESSION_TTL_SECS
+                )
+                dashboard_url = build_dashboard_url(
+                    base_url, startup_token, local_only=self._local_only
+                )
             # Off the loop: the Remote hint resolves the host's own name, and
             # a name the resolver cannot answer (every hosted macOS runner)
             # would otherwise sit on the loop for the lookup's bound.

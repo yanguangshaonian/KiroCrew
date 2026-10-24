@@ -95,7 +95,7 @@ const LIVE_ROSTER = [
 ]
 
 /** The adapter's own cache slot: a good list from an earlier live fetch. */
-const MODELS_CACHE_KEY = 'kc.acp.models.v1'
+const MODELS_CACHE_KEY = 'kc.direct.models.v1'
 
 function renderSidebar(slots: Record<string, unknown>[] = SLOTS) {
   const defaults = createTestStore().getState()

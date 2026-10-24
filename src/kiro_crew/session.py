@@ -49,8 +49,8 @@ if TYPE_CHECKING:
 
 import kiro_crew._facade_mirror as _facade_mirror
 from kiro_crew import model_registry, model_scope, platform_compat, shutdown_event  # noqa: F401
-from kiro_crew.acp.client import advertised_model_ids, model_is_unusable
-from kiro_crew.acp.types import (
+from kiro_crew.model_catalog import advertised_model_ids, model_is_unusable
+from kiro_crew.runtime_types import (
     ACP_BACKEND_KIRO,
     PROVIDER_LABEL_CLAUDE,
     PROVIDER_LABEL_DEFAULT,
@@ -263,6 +263,10 @@ def _is_claude_backend(provider: Any) -> bool:
     ``agent_sdk.backend_identity``, so this and ``AcpProvider.is_claude_backend``
     cannot disagree about which string counts as the claude backend.
     """
+    from kiro_crew.providers.direct import DirectProvider
+
+    if isinstance(provider, DirectProvider):
+        return False
     from kiro_crew.providers.acp import AcpProvider  # circular import: providers -> session
 
     if not isinstance(provider, AcpProvider):
@@ -276,6 +280,10 @@ def _provider_label(provider: Any) -> str:
 
     Deferred import for the same reason ``_is_claude_backend`` defers it.
     """
+    from kiro_crew.providers.direct import DirectProvider
+
+    if isinstance(provider, DirectProvider):
+        return "direct"
     from kiro_crew.providers.acp import provider_label  # circular: providers -> session
 
     return provider_label(provider)
@@ -283,6 +291,10 @@ def _provider_label(provider: Any) -> str:
 
 def _is_acp_provider(provider: Any) -> bool:
     """Runtime type check kept lazy across the providers/session cycle."""
+    from kiro_crew.providers.direct import DirectProvider
+
+    if isinstance(provider, DirectProvider):
+        return False
     from kiro_crew.providers.acp import AcpProvider
 
     return isinstance(provider, AcpProvider)

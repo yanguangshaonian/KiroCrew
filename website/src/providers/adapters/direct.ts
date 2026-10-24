@@ -56,7 +56,7 @@ interface KirocrewAgentConfig {
 // available models can change while the backend is unreachable, so a very old
 // cache could still offer a model the CLI no longer accepts (a residual, now
 // time-boxed, -32603 window). Versioned key so a shape change invalidates.
-const MODELS_CACHE_KEY = 'kc.acp.models.v1'
+const MODELS_CACHE_KEY = 'kc.direct.models.v1'
 const MODELS_CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24h — bound stale-model exposure
 
 interface CachedModels {
@@ -195,9 +195,11 @@ function rowMultiplier(m: RawModel): number | undefined {
   return isPricedMultiplier(m.rate_multiplier) ? m.rate_multiplier : undefined
 }
 
-export class AcpAdapter implements ProviderAdapter {
-  readonly id = 'acp' as const
-  readonly displayName = 'ACP'
+export { DirectAdapter as AcpAdapter }
+
+export class DirectAdapter implements ProviderAdapter {
+  readonly id = 'direct' as const
+  readonly displayName = '内置 Agent'
 
   readonly capabilities: ProviderCapabilities = {
     hooks: true,
@@ -222,11 +224,11 @@ export class AcpAdapter implements ProviderAdapter {
   }
 
   readonly labels: ProviderLabels = {
-    sessionProcess: 'ACP subprocess',
-    processCountLabel: 'acp_cli',
+    sessionProcess: '内置会话',
+    processCountLabel: 'direct',
     configFile: 'kirocrew.json',
     pluginRegistryName: 'Packages',
-    hooksSection: 'ACP Agent Hooks',
+    hooksSection: 'Agent Hooks',
   }
 
   resolveAgentTemplate(agent: AgentBinding): string {

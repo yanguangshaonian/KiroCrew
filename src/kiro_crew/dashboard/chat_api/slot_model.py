@@ -214,6 +214,11 @@ async def _try_live_model_switch(
     where the reset is an O(1) no-op teardown but still routes through
     ``_reset_slot_session``'s pending-wait cleanup.
     """
+    from kiro_crew.providers.direct import DirectProvider
+
+    if isinstance(provider, DirectProvider):
+        await provider.set_model(model_name)
+        return True
     if not isinstance(provider, AcpProvider):
         return False
     if provider.has_active_turn():

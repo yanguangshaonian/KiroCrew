@@ -268,6 +268,8 @@ def provider_label(provider: object) -> str:
     edge). Plain data out. Function-local import for the same reason as
     :func:`resolve_pin_spelling`.
     """
+    if getattr(provider, "context_provider_type", None) == "direct":
+        return "direct"
     from kiro_crew.providers.acp import provider_label as _impl
 
     return _impl(provider)

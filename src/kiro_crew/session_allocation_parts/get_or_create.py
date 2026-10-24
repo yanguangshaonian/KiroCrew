@@ -909,7 +909,11 @@ async def _get_or_create_impl(
                 owner._session_map.clear_sid(key)
 
         if resume_sid:
-            if self._deps.is_acp_provider(provider):
+            from kiro_crew.providers.direct import DirectProvider
+
+            if isinstance(provider, DirectProvider):
+                provider.set_resume_session_id(resume_sid)
+            elif self._deps.is_acp_provider(provider):
                 cast(Any, provider).client.set_resume_session_id(resume_sid)
                 self._deps.logger.info("Attempting session/load for %s (sid=%s)", key, resume_sid)
             elif self._deps.is_claude_provider(provider):
@@ -1021,7 +1025,11 @@ async def _get_or_create_impl(
             if stamp != observed:
                 raise RuntimeError("capability_process_changed_during_verification")
         resumed = False
-        if self._deps.is_acp_provider(provider):
+        from kiro_crew.providers.direct import DirectProvider
+
+        if isinstance(provider, DirectProvider):
+            resumed = provider.resumed
+        elif self._deps.is_acp_provider(provider):
             resumed = cast(Any, provider).client.resumed
         if speculative and speculative_resume and not resumed:
             raise SpeculativeResumeRefused(key)

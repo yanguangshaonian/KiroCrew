@@ -810,9 +810,11 @@ async def start_dashboard(
     _wire_tunnel_shutdown(app, state)
     from kiro_crew.kiro_prerequisite import KiroPrerequisiteService
 
+    direct_runtime = getattr(getattr(sessions, "_cfg", None), "agent", None)
+    direct_runtime = getattr(direct_runtime, "provider", "") == "direct"
     app["kiro_prerequisite_service"] = await asyncio.to_thread(
         KiroPrerequisiteService,
-        assume_ready=assume_kiro_ready,
+        assume_ready=assume_kiro_ready or direct_runtime,
     )
     state.kiro_prerequisite_service = app["kiro_prerequisite_service"]
     # A signed-out bundled kiro-cli-chat fails a prompt as a bare connection
@@ -827,7 +829,8 @@ async def start_dashboard(
     # into a retire/respawn loop -- is unnecessary: a real account change after
     # this still compares unequal and sweeps. A store that cannot be
     # fingerprinted refuses the seed and keeps the fail-safe sweep.
-    await app["kiro_prerequisite_service"].seed_sessions_baseline()
+    if not direct_runtime:
+        await app["kiro_prerequisite_service"].seed_sessions_baseline()
     # Stamp every kiro-backed spawn with the account the store holds at that
     # moment: the turn gate compares those stamps against its fresh read, so a
     # child from an account round trip NO read ever observed -- the one case
@@ -840,7 +843,8 @@ async def start_dashboard(
     # take seconds, which is what made the first-run setup chrome visible to
     # returning users. Fire-and-forget — a warm-up is never a boot dependency,
     # and the task is cancelled by the service's shutdown hook.
-    app["kiro_prerequisite_service"].warm_up()
+    if not direct_runtime:
+        app["kiro_prerequisite_service"].warm_up()
     state.load_folders()
     # Off-loop: a large cron_folders.json would otherwise block the event
     # loop with synchronous file I/O + JSON parsing during startup.

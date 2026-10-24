@@ -168,8 +168,12 @@ class AgentConfig:
         ),
     )
     provider: str = field(
-        default="acp",
-        metadata=_meta("Provider", "LLM provider backend (KiroACP / kiro-cli).", enum=["acp"]),
+        default="direct",
+        metadata=_meta("模型运行时", "由 KiroCrew 直接调用模型并执行工具.", enum=["direct"]),
+    )
+    direct_model: dict = field(
+        default_factory=dict,
+        metadata=_meta("模型连接", "Chat Completions 的 url、api_key、model 和 models 配置."),
     )
     mcp_registry_mode: bool = field(
         default=False,

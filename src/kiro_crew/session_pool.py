@@ -311,6 +311,9 @@ class WarmSessionPool:
         if self._pool_started or not self._owner._provider_factory:
             return
 
+        if self._owner._cfg.agent.provider == "direct":
+            self._pool_size = 0
+
         self._owner._session_map.prune()
         self._pool_started = True
 

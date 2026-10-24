@@ -374,6 +374,8 @@ def _collect_active_pids(sessions: "dict") -> tuple[set[int], bool]:
     """
     pids: set[int] = _protected_pids()  # shared _bg / subagent runtimes shielded from the sweep
     for sess in sessions.values():
+        if getattr(sess.provider, "context_provider_type", None) == "direct":
+            continue
         # ACP provider: long-lived process PID via client._pid
         client = getattr(sess.provider, "client", None)
         if client is not None:

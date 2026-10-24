@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Callable, NamedTuple, Protocol
 
 import kiro_crew._facade_mirror as _facade_mirror
 from kiro_crew import platform_compat
-from kiro_crew.acp.types import PROVIDER_LABEL_DEFAULT
+from kiro_crew.runtime_types import PROVIDER_LABEL_DEFAULT
 from kiro_crew.atomic_write import atomic_write, fsync_dir, read_bytes_with_retry
 from kiro_crew.config.paths import data_home, kiro_sessions_dir
 from kiro_crew.execution_context import ExecutionContext

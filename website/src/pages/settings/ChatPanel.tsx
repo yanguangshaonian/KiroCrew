@@ -22,6 +22,7 @@ import { useChatPanelDashboard } from './useChatPanelDashboard'
 import { useChatPanelTypedFields } from './useChatPanelTypedFields'
 import { chatPanelConfigOpts, useChatPanelFallbackModels, useChatPanelModelDefaults } from './useChatPanelModels'
 import { AppModelsSection } from './AppModelsSection'
+import { DirectModelSettings } from './DirectModelSettings'
 import { FollowDefaultModelAction } from './FollowDefaultModelAction'
 import { KiroHarnessFallbackNote } from './KiroHarnessFallbackNote'
 import { DefaultSessionFolderSetting } from './DefaultSessionFolderSetting'
@@ -413,6 +414,7 @@ export function ChatPanel({ basePath }: { basePath?: string } = {}) {
         case 'models':
           return (
       <>
+        <DirectModelSettings />
         {/* Grouped by role so each block reads as "which model + how hard it
             thinks" for one kind of work, rather than six stacked selects.
             Chat is the interactive default; Background and Sub-agents inherit it

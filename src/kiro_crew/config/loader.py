@@ -509,6 +509,8 @@ def _agent_tier_model(
 
 
 def _model_scope_filter(config: KiroCrewConfig, backend: str | None = None) -> Callable[[str], str]:
+    if config.agent.provider == "direct":
+        return normalize_agent_model
     namespace = capabilities_for(
         config.agent.acp_backend if backend is None else backend
     ).model_id_namespace
@@ -598,6 +600,8 @@ def resolve_effective_model(
     configured = normalize_agent_model(config.agent.model)
     if _in_scope(configured):
         return configured
+    if config.agent.provider == "direct":
+        return normalize_agent_model(config.agent.direct_model.get("model", ""))
     # agent.model is "auto"/unset: fall through to the installed agent file the
     # factory would read, so the chip shows what will actually be used.
     return _in_scope(normalize_agent_model(config._resolve_agent_model()))

@@ -1,5 +1,44 @@
 # LLM Provider Abstraction
 
+## 本地分叉运行时
+
+网页直接挂载应用, 不再运行外部 CLI 安装登录门禁或 token 刷新调度.
+旧 `/api/kiro-prerequisite` 状态、修复与升级路由已删除.
+首次启动自动创建配置, 未配置模型时不创建后台会话; 配置模型后通过内置工厂
+创建会话. direct 默认模型变更不再重建外部 Agent spec.
+
+本工作区的配置工厂创建 `providers/direct.py::DirectProvider`, 直接调用
+`agent.direct_model.url` 的 Chat Completions API. 配置包含 `api_key`, `model`
+和 `models`; 每个模型可声明上下文、输入、输出预算与思考等级.
+`KIROCREW_MODEL_API_KEY` 优先于配置中的凭据.
+
+`providers/chat_stream.py` 聚合 SSE 工具参数分片, 检查终止标记和结束原因;
+`providers/direct_mcp.py` 通过 MCP Python SDK 管理 stdio/HTTP 连接.
+挂载 Agent 的工具在执行前发送 `permission_request`, 由现有网页、消息或后台
+消费方执行 HookManager 与审批规则, `approve_tool`/`reject_tool` 完成判定.
+审批等待预算为 180 秒, 取消时清理待决请求; 限时授权沿用双时钟截止校验.
+通用模型目录基础判断与 JSON 降级渲染位于 `model_catalog.py` 和
+`json_rendering.py`, 共享事件不再为了渲染工具参数而导入 ACP dispatch.
+会话历史存储于数据目录的 `direct_sessions`, 工具调用在执行前持久化未知结果
+占位, 防止取消后留下缺少工具结果的对话. 设置 API 为
+`GET/PUT /api/config/direct-model`, 网页入口在聊天模型设置.
+
+以下 ACP 章节保留上游兼容模块的说明, 不是本分叉的默认运行路径.
+
+内置轮次默认 1800 秒总截止时间, 包含锁等待、启动、压缩和工具执行;
+调用方可传入更短预算. 启动另有 90 秒上限, 失败会清理已创建连接.
+MCP 工具请求上限 180 秒, 取消会传递给实际请求, 后续队列仍可使用连接.
+停止生成默认最多等待 10 秒确认. 旧 ACP 包导出按需加载, 导入包本身不创建
+旧客户端或运行时导入链.
+
+共享事件定义位于 `runtime_types.py`, 图片附件解析位于 `prompt_blocks.py`,
+单轮用量记录位于 `turn_usage.py`. direct 与 provider 基类直接使用这些中立
+模块; `acp.types` 和 `acp.prompt_blocks` 暂保留同对象兼容别名, 旧调用方与
+测试的 patch 仍作用于同一模块. 前端实际实现位于
+`website/src/providers/adapters/direct.ts`, 旧文件只转发导出.
+
+direct 模式不运行外部 CLI 版本检查、账户基线读取或登录预热.
+
 Kiro Crew drives every LLM through one seam: the `LLMProvider` ABC in
 `providers/base.py`. `AcpProvider` (`providers/acp.py`) is the only implementation
 the factory selects; `AcpSessionProvider` (`acp/session_provider.py`) is a second

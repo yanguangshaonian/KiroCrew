@@ -21,8 +21,10 @@ that no module outside ``kiro_crew.llm_helpers_parts`` imports this one.
 
 from __future__ import annotations
 
-from kiro_crew.acp.client import AcpError, AcpPromptBusy, advertised_model_ids
-from kiro_crew.acp.types import EVENT_STEER_CONSUMED, PROVIDER_LABEL_DEFAULT, TurnUsage
+from kiro_crew.acp.transport_errors import AcpError, AcpPromptBusy
+from kiro_crew.model_catalog import advertised_model_ids
+from kiro_crew.runtime_types import EVENT_STEER_CONSUMED, PROVIDER_LABEL_DEFAULT
+from kiro_crew.turn_usage import TurnUsage
 from kiro_crew.providers.base import (
     EVENT_COMPLETE,
     EVENT_PERMISSION_REQUEST,

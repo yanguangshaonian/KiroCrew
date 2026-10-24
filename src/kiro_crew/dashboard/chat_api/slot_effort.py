@@ -67,6 +67,13 @@ async def api_chat_slot_selection_capabilities(request: web.Request) -> web.Resp
     if denied is not None:
         return denied
     provider = state.sessions.get_provider(effective_session_key(slot))
+    from kiro_crew.providers.direct import DirectProvider
+
+    if isinstance(provider, DirectProvider):
+        return web.json_response({"known": True, "backend": "direct",
+                                  "effort_supported": provider.supports_effort(),
+                                  "effort_levels": provider.get_valid_effort_levels(),
+                                  "model_effort_pair_ids": False})
     if not isinstance(provider, AcpProvider):
         # The slot can exist before its ACP session. The configured harness
         # still knows whether model IDs encode effort, so the picker can render
@@ -147,6 +154,11 @@ async def api_chat_slot_reasoning_effort(request: web.Request) -> web.Response:
     assert body is not None  # read_bounded_json returns (dict, None) on success
     effort = body.get("reasoning_effort", "")
     valid_efforts = get_reasoning_effort_values()
+    from kiro_crew.providers.direct import DirectProvider
+
+    live_provider = state.sessions.get_provider(effective_session_key(slot))
+    if isinstance(live_provider, DirectProvider):
+        valid_efforts = {*valid_efforts, *live_provider.get_valid_effort_levels()}
     if not isinstance(effort, str) or effort not in valid_efforts:
         return web.json_response(
             {
@@ -200,6 +212,10 @@ async def api_chat_slot_reasoning_effort(request: web.Request) -> web.Response:
         if denied is not None:
             return denied
         _live = state.sessions.get_provider(session_key)
+        from kiro_crew.providers.direct import DirectProvider
+
+        if isinstance(_live, DirectProvider) and effort and effort not in _live.get_valid_effort_levels():
+            return web.json_response({"error": "当前模型不支持该思考等级.", "code": "effort_level_not_offered"}, status=400)
         if effort and isinstance(_live, AcpProvider) and not _live.accepts_effort_level(effort):
             # A level the live session's own vocabulary hides: refused here, so
             # it neither persists nor falls through to a session reset.
@@ -255,7 +271,7 @@ async def api_chat_slot_reasoning_effort(request: web.Request) -> web.Response:
         logger.info("Slot %s reasoning_effort switched to %r", name, effort or "default")
 
         _updated_live: bool | None = False
-        if isinstance(provider, AcpProvider) and provider.supports_effort():
+        if isinstance(provider, (AcpProvider, DirectProvider)) and provider.supports_effort():
             # Guard against racing the in-flight prompt read loop: a live
             # change_effort issues session/set_config_option and its response wait
             # would call stdout.readline() concurrently with the streaming

@@ -333,15 +333,36 @@ async def close_all(self: SessionLifecycleService, drain_timeout: float | None =
             break
 
     async with owner._lock:
-        acp_provider_type = self._deps.get_acp_provider_type()
-        claude_code_provider_type = self._deps.get_claude_code_provider_type()
+        legacy_sessions = any(
+            sess.provider.context_provider_type != "direct" for sess in owner._sessions.values()
+        )
+        acp_provider_type = self._deps.get_acp_provider_type() if legacy_sessions else ()
+        claude_code_provider_type = (
+            self._deps.get_claude_code_provider_type() if legacy_sessions else None
+        )
         for key, sess in owner._sessions.items():
             # The identity sweep already moved this old-account pointer to
             # discarded_sid. Do not map the live child's sid back at shutdown.
             if sess.retire_on_identity_change:
                 continue
             cwd_str = sess.provider.cwd
-            if isinstance(sess.provider, acp_provider_type):
+            if sess.provider.context_provider_type == "direct":
+                sid = sess.provider.session_id
+                if (
+                    sid
+                    and sess.provider.memory_mode == "persistent"
+                    and not sess.provider_switch_replay
+                    and key != constants.background_key
+                    and (
+                        not (
+                            key in constants.stateless_keys
+                            or any(key.startswith(prefix) for prefix in constants.stateless_prefixes)
+                        )
+                        or owner._is_continuable_key(key)
+                    )
+                ):
+                    owner._session_map.set(key, sid, provider="direct", cwd=cwd_str)
+            elif isinstance(sess.provider, acp_provider_type):
                 sid = sess.provider.client._session_id
                 # A replay-pending fresh child is not yet the durable
                 # conversation. Allocation retained the prior full-history

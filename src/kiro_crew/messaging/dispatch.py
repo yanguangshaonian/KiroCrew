@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from kiro_crew import _facade_mirror
-from kiro_crew.acp.types import STOP_REASON_COMPACTION_FAILED
+from kiro_crew.runtime_types import STOP_REASON_COMPACTION_FAILED
 from kiro_crew.context import session_store_for_turn
 from kiro_crew.executors import run_in_embed_pool
 from kiro_crew.hooks import (

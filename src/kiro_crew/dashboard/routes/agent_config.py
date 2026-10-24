@@ -12,6 +12,7 @@ from __future__ import annotations
 from aiohttp import web
 
 from kiro_crew.dashboard import handlers
+from kiro_crew.dashboard.handlers.direct_model import api_direct_model
 from kiro_crew.dashboard.handlers.acp_backend_status import (
     api_acp_backend_recheck,
     api_acp_backend_status,
@@ -30,6 +31,8 @@ from kiro_crew.dashboard.handlers.mcp_discover import (
 
 def register(app: web.Application) -> None:
     """Register the agent_config routes on *app*."""
+    app.router.add_get("/api/config/direct-model", api_direct_model)
+    app.router.add_put("/api/config/direct-model", api_direct_model)
     # Agent config
     app.router.add_get("/api/agent/config", handlers.api_agent_config)
     app.router.add_put("/api/agent/config", handlers.api_agent_config)

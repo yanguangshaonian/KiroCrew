@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 from kiro_crew import name_grant, runtime_death
 from kiro_crew._facade_compose import compose as _facade_compose
 from kiro_crew.acp.client import AcpError, AcpProcessDied, AcpPromptBusy, AcpTimeoutError
-from kiro_crew.acp.types import (
+from kiro_crew.runtime_types import (
     STOP_REASON_CANCELLED,
     STOP_REASON_COMPACTION_FAILED,
     STOP_REASON_END_TURN,
